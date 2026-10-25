@@ -19,6 +19,15 @@ on 25 October 2026. Paths are relative to that package's root.
 | Restore and save | `lib/cache.js`, `restoreCacheV2` and `saveCacheV2` | Lookup sends the primary key, version and ordered restore keys; the client uploads to the create response URL and then finalizes. A lookup response with `ok: false` is a miss. |
 | Blob transfers | `lib/internal/uploadUtils.js`, `lib/internal/downloadUtils.js` | The client uses the Azure storage SDK for the upload URL and can use it for downloads. |
 
+The published [`@actions/cache` 5.1.0 package](https://registry.npmjs.org/@actions/cache/-/cache-5.1.0.tgz)
+and [`6.1.0 package](https://registry.npmjs.org/@actions/cache/-/cache-6.1.0.tgz)
+were also inspected on 25 October 2026. In each package's `lib/cache.js`,
+`saveCacheV2` emits a workflow warning when `CreateCacheEntry` returns
+`ok: false` with a non-empty message that lacks the `cache write denied:`
+prefix. Cubby omits messages for ordinary duplicate and in-progress
+reservations. Other refusal messages retain their existing behavior. This is
+source evidence for the response shape, not a live compatibility result.
+
 The matching SDK release's
 [`blockBlob.ts`](https://github.com/Azure/azure-sdk-for-js/blob/adef2d36f8c055171b7bdcf8fd73c68cc4cf6b06/sdk/storage/storage-blob/src/generated/src/operations/blockBlob.ts)
 defines the whole-blob PUT, staged-block PUT and block-list PUT operations.

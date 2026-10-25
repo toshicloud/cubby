@@ -85,13 +85,14 @@ func (s *Server) twirpCreateCacheEntry(w http.ResponseWriter, r *http.Request, s
 
 	ts.purgeStaleUploads(now, s.log.Info)
 
+	// A collision is answered with ok:false and no message: @actions/cache
+	// 5.1.0 and 6.1.0 (lib/cache.js, saveCacheV2) warn on non-empty collision
+	// messages. See PROTOCOL.md.
 	if ts.findEntry(scope.Tenant, scope.Repo, scope.WriteRef, req.Key, req.Version) != nil {
-		resp.Message = "duplicate entry"
 		writeTwirpJSON(w, resp)
 		return
 	}
 	if u := ts.findUpload(scope.Tenant, scope.Repo, scope.WriteRef, req.Key, req.Version); u != nil {
-		resp.Message = "upload in progress"
 		writeTwirpJSON(w, resp)
 		return
 	}

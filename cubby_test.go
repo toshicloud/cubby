@@ -258,14 +258,49 @@ func TestCreateRefusesDuplicateAndOverCap(t *testing.T) {
 	h := newTestServer(t, dir, nil)
 	saveEntry(t, h, "j", "dup", []byte("x"))
 
+	// A collision is a plain refusal: @actions/cache 5.1.0 and 6.1.0 warn
+	// on non-empty collision messages, so these refusals must carry none.
+	assertCollision := func(t *testing.T, body []byte) {
+		t.Helper()
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal(body, &raw); err != nil {
+			t.Fatalf("collision response is not json: %v (%s)", err, body)
+		}
+		if string(raw["ok"]) != "false" {
+			t.Fatalf("collision response ok = %s, want false (%s)", raw["ok"], body)
+		}
+		if _, has := raw["message"]; has {
+			t.Fatalf("collision response carries a message: %s", body)
+		}
+		if _, has := raw["signed_upload_url"]; has {
+			t.Fatalf("collision response carries a signed upload url: %s", body)
+		}
+	}
+
 	code, body := postTwirp(t, h, "j", "CreateCacheEntry", map[string]string{"key": "dup", "version": testVersion})
+	if code != http.StatusOK {
+		t.Fatalf("duplicate create status = %d, want 200 (%s)", code, body)
+	}
+	assertCollision(t, body)
+
+	// A matching in-progress upload is the same collision and takes the same
+	// response shape.
+	var reserved struct {
+		OK bool `json:"ok"`
+	}
+	_, body = postTwirp(t, h, "j", "CreateCacheEntry", map[string]string{"key": "pending", "version": testVersion})
+	if err := json.Unmarshal(body, &reserved); err != nil || !reserved.OK {
+		t.Fatalf("reserve pending upload: %s", body)
+	}
+	code, body = postTwirp(t, h, "j", "CreateCacheEntry", map[string]string{"key": "pending", "version": testVersion})
+	if code != http.StatusOK {
+		t.Fatalf("in-progress create status = %d, want 200 (%s)", code, body)
+	}
+	assertCollision(t, body)
+
 	var resp struct {
 		OK      bool   `json:"ok"`
 		Message string `json:"message"`
-	}
-	_ = json.Unmarshal(body, &resp)
-	if code != http.StatusOK || resp.OK {
-		t.Fatalf("duplicate create should fail: %d %s", code, body)
 	}
 
 	testScopes["j"] = Scope{
