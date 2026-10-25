@@ -8,6 +8,7 @@ package cubby
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -318,10 +319,26 @@ func (s *Server) twirpGetCacheEntryDownloadURL(w http.ResponseWriter, r *http.Re
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 
-	ent, matchedKey := findRestoreMatch(ts, scope, req.Key, req.Version, req.RestoreKeys)
-	if ent == nil {
-		writeTwirpJSON(w, getDownloadResp{OK: false})
-		return
+	var ent *cacheEntry
+	var matchedKey string
+	for {
+		ent, matchedKey = findRestoreMatch(ts, scope, req.Key, req.Version, req.RestoreKeys)
+		if ent == nil {
+			writeTwirpJSON(w, getDownloadResp{OK: false})
+			return
+		}
+		if err := ts.validateEntry(ent); err != nil {
+			if !os.IsNotExist(err) && !errors.Is(err, errEntryMiss) {
+				writeTwirpError(w, http.StatusInternalServerError, "internal", "open")
+				return
+			}
+			if err := s.dropEntryLocked(ts, ent.ID, "invalid storage at lookup"); err != nil {
+				writeTwirpError(w, http.StatusInternalServerError, "internal", "index")
+				return
+			}
+			continue
+		}
+		break
 	}
 	ent.LastUsed = now
 	if err := ts.persistIndex(); err != nil {

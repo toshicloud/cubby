@@ -26,8 +26,7 @@ const (
 	manifestVersion = 1
 )
 
-// errEntryMiss reports an entry whose bytes cannot be served: a block file is
-// missing or is not the size its manifest records.
+// errEntryMiss reports an entry whose stored bytes or manifest are invalid.
 var errEntryMiss = errors.New("cubby: entry miss")
 
 // entryManifest names the block files that make up one entry, in byte order.
@@ -53,20 +52,20 @@ func readManifest(path string) (entryManifest, error) {
 	}
 	var m entryManifest
 	if err := json.Unmarshal(data, &m); err != nil {
-		return entryManifest{}, fmt.Errorf("cubby: parse manifest: %w", err)
+		return entryManifest{}, fmt.Errorf("%w: parse manifest: %w", errEntryMiss, err)
 	}
 	if m.Version != manifestVersion || len(m.Segments) == 0 {
-		return entryManifest{}, fmt.Errorf("cubby: unsupported manifest %q", path)
+		return entryManifest{}, fmt.Errorf("%w: unsupported manifest %q", errEntryMiss, path)
 	}
 	var total int64
 	for _, seg := range m.Segments {
 		if seg.Block == "" || filepath.Base(seg.Block) != seg.Block || seg.Size < 0 {
-			return entryManifest{}, fmt.Errorf("cubby: bad manifest segment %q", seg.Block)
+			return entryManifest{}, fmt.Errorf("%w: bad manifest segment %q", errEntryMiss, seg.Block)
 		}
 		total += seg.Size
 	}
 	if total != m.Size {
-		return entryManifest{}, fmt.Errorf("cubby: manifest size %d, segments %d", m.Size, total)
+		return entryManifest{}, fmt.Errorf("%w: manifest size %d, segments %d", errEntryMiss, m.Size, total)
 	}
 	return m, nil
 }

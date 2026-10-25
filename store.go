@@ -42,6 +42,54 @@ func (t *tenantStore) entryPath(id int64) string {
 	return filepath.Join(t.entriesDir(), fmt.Sprintf("%d", id))
 }
 
+// validateEntry checks the storage behind a candidate before lookup returns its
+// URL. Missing or invalid bytes are misses; other filesystem errors are left
+// intact so a temporary failure cannot cause a valid entry to be deleted.
+func (t *tenantStore) validateEntry(ent *cacheEntry) error {
+	path := t.entryPath(ent.ID)
+	fi, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if !fi.IsDir() {
+		if !fi.Mode().IsRegular() || fi.Size() != ent.Size {
+			return fmt.Errorf("%w: invalid blob size or type", errEntryMiss)
+		}
+		return nil
+	}
+	m, err := readManifest(filepath.Join(path, manifestName))
+	if err != nil {
+		return err
+	}
+	if m.Size != ent.Size {
+		return fmt.Errorf("%w: manifest and index sizes differ", errEntryMiss)
+	}
+	reader, err := openSegmentReader(path, m)
+	if err != nil {
+		return err
+	}
+	return reader.Close()
+}
+
+// dropEntryLocked removes a stale index record and its unpinned files. The
+// caller holds ts.mu; an active download's release removes the remaining files.
+func (s *Server) dropEntryLocked(ts *tenantStore, id int64, reason string) error {
+	ent := ts.findEntryByID(id)
+	if ent == nil {
+		return nil
+	}
+	// removeEntry shifts the slice containing ent.
+	tenant := ent.Tenant
+	ts.removeEntry(id)
+	err := ts.persistIndex()
+	if ts.serving[id] == 0 {
+		_ = os.RemoveAll(ts.entryPath(id))
+	}
+	s.setUsage(tenant, ts.totalEntryBytes())
+	s.log.Info("dropped cache entry", "entry", id, "reason", reason)
+	return err
+}
+
 func (t *tenantStore) uploadDir(uploadID string) string {
 	return filepath.Join(t.uploadsDir(), uploadID)
 }
@@ -245,11 +293,14 @@ func (t *tenantStore) evict(capBytes int64, keepID int64, now time.Time, log fun
 	return nil
 }
 
-// release ends one download of an entry and lets eviction take it again.
+// release ends one download and removes stale files after the last reader.
 func (t *tenantStore) release(id int64) {
 	t.mu.Lock()
 	if t.serving[id] <= 1 {
 		delete(t.serving, id)
+		if t.findEntryByID(id) == nil {
+			_ = os.RemoveAll(t.entryPath(id))
+		}
 	} else {
 		t.serving[id]--
 	}

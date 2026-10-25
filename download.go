@@ -70,6 +70,7 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 
 	if fi, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
+			s.dropEntry(ts, id, "missing blob")
 			http.NotFound(w, r)
 			return
 		}
@@ -83,6 +84,7 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	f, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
+			s.dropEntry(ts, id, "missing blob")
 			http.NotFound(w, r)
 			return
 		}
@@ -102,8 +104,12 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 func (s *Server) serveManifestEntry(w http.ResponseWriter, r *http.Request, ts *tenantStore, id int64, dir string) {
 	m, err := readManifest(filepath.Join(dir, manifestName))
 	if err != nil {
-		s.dropEntry(ts, id, "unreadable manifest")
-		http.NotFound(w, r)
+		if os.IsNotExist(err) || errors.Is(err, errEntryMiss) {
+			s.dropEntry(ts, id, "invalid manifest")
+			http.NotFound(w, r)
+			return
+		}
+		writeTwirpError(w, http.StatusInternalServerError, "internal", "open")
 		return
 	}
 	reader, err := openSegmentReader(dir, m)
@@ -249,24 +255,6 @@ func simpleRange(value string, size int64) (start, length int64, ok bool) {
 // still reading them.
 func (s *Server) dropEntry(ts *tenantStore, id int64, reason string) {
 	ts.mu.Lock()
-	ent := ts.findEntryByID(id)
-	tenant := ""
-	if ent != nil {
-		// findEntryByID points into the slice that removeEntry shifts.
-		tenant = ent.Tenant
-		ts.removeEntry(id)
-		_ = ts.persistIndex()
-	}
-	total := ts.totalEntryBytes()
-	path := ts.entryPath(id)
-	unused := ts.serving[id] <= 1
-	ts.mu.Unlock()
-
-	if unused {
-		_ = os.RemoveAll(path)
-	}
-	if tenant != "" {
-		s.setUsage(tenant, total)
-	}
-	s.log.Info("dropped cache entry", "entry", id, "reason", reason)
+	defer ts.mu.Unlock()
+	_ = s.dropEntryLocked(ts, id, reason)
 }
