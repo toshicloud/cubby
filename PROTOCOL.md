@@ -77,8 +77,9 @@ concatenating the route to the results URL.
 
 ## Custom import host
 
-`docs/vanity/cubby.html` is the prepared discovery page. Serve it over HTTPS at
-`go.toshicloud.io/cubby`, including requests with `?go-get=1`, after configuring
-DNS. Its `go-import` metadata maps the module to the GitHub repository. It is
-not deployed by this change. See the
+[`docs/vanity`](docs/vanity/README.md) contains the prepared discovery Worker
+and domain configuration. It serves `go-import` metadata at
+`go.toshicloud.io/cubby` and its subpaths for requests with `?go-get=1`, mapping
+the module to the GitHub repository. Deployment and a published release tag
+are still needed before the module can be downloaded. See the
 [Go module discovery rules](https://go.dev/ref/mod#vcs-find).
