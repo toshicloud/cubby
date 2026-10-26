@@ -1,7 +1,0 @@
-# HTTPS Go module discovery; independent of the cache server.
-name = "toshicloud-goimport"
-main = "worker.mjs"
-compatibility_date = "2026-10-01"
-workers_dev = false
-preview_urls = false
-routes = [{ pattern = "go.toshicloud.io", custom_domain = true }]

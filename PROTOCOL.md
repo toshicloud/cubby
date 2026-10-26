@@ -77,8 +77,9 @@ concatenating the route to the results URL.
 
 ## Custom import host
 
-[`docs/vanity`](docs/vanity/README.md) contains the discovery Worker and domain
-configuration. The [live HTTPS endpoint](https://go.toshicloud.io/cubby?go-get=1)
+The discovery Worker and domain configuration live in
+[`toshicloud/go.toshicloud.io`](https://github.com/toshicloud/go.toshicloud.io).
+The [live HTTPS endpoint](https://go.toshicloud.io/cubby?go-get=1)
 serves `go-import` metadata for the module and its subpaths, mapping them to
 the GitHub repository. Release publication is still pending. See the
 [Go module discovery rules](https://go.dev/ref/mod#vcs-find).

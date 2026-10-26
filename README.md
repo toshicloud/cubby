@@ -19,9 +19,9 @@ go build -o cubby ./cmd/cubby
 ```
 
 The module path is `go.toshicloud.io/cubby`. The source repository is
-[toshicloud/cubby](https://github.com/toshicloud/cubby). The custom import host
-still needs its DNS and Go discovery endpoint configured, so build from the
-checkout until it is available.
+[toshicloud/cubby](https://github.com/toshicloud/cubby). The
+[import host](https://go.toshicloud.io/) is live. Release publication is still
+pending, so build from the checkout for now.
 
 ## Run a cache for one isolated job
 
