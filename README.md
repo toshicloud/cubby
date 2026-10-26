@@ -5,9 +5,10 @@ a Go library and a small command. Cubby stores cache entries on disk and
 provides tenant quotas, repository and ref isolation, and least-recently-used
 eviction. It uses the Go standard library only.
 
-**Development status:** the initial implementation is under development. Its tests
-exercise the local protocol and storage behavior; real-run compatibility with
-specific GitHub Actions versions is not yet established. There are no releases.
+**Development status:** the initial implementation is under development.
+[Local client experiments](compatibility/README.md) exercise small and block
+uploads with matching restored bytes. Compatibility with specific GitHub Actions
+runner setups is not yet established. There are no releases.
 
 ## Build
 
