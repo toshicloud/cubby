@@ -13,8 +13,12 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 )
+
+// Validate the server-issued ID format before using it in filesystem paths.
+var uploadIDPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
 func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
@@ -30,7 +34,7 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uploadID := strings.TrimPrefix(r.URL.Path, uploadPrefix)
-	if len(uploadID) != 32 {
+	if !uploadIDPattern.MatchString(uploadID) {
 		http.NotFound(w, r)
 		return
 	}
