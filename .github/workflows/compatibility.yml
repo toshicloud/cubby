@@ -682,12 +682,17 @@ jobs:
       - name: Assert the artifact service was forwarded
         run: |
           set -euo pipefail
-          node compatibility/assert-case.mjs observer-count \
-            --log "$EXP_DIR/observer-restore.jsonl" \
-            --from "$ARTIFACT_OFFSET" \
-            --contains ArtifactService \
-            --status-class 2 \
-            --min 2
+          # @actions/artifact 6.3.1: lib/internal/upload/upload-artifact.js,
+          # lib/internal/find/get-artifact.js, lib/internal/download/download-artifact.js.
+          # Require successful upload and download calls independently.
+          for rpc in CreateArtifact FinalizeArtifact ListArtifacts GetSignedArtifactURL; do
+            node compatibility/assert-case.mjs observer-count \
+              --log "$EXP_DIR/observer-restore.jsonl" \
+              --from "$ARTIFACT_OFFSET" \
+              --contains "/twirp/github.actions.results.api.v1.ArtifactService/$rpc" \
+              --status-class 2 \
+              --min 1
+          done
 
       - name: Start the bounded host sentinel
         id: sentinel
