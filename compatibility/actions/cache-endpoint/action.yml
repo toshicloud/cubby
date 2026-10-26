@@ -1,0 +1,18 @@
+# Copyright 2026 The cubby contributors
+# SPDX-License-Identifier: Apache-2.0
+name: Cubby results endpoint probe
+description: >-
+  Classify the results endpoint the runner's Node handler made visible for
+  this action. Prints and outputs only a classification, never the URL.
+inputs:
+  port:
+    description: The loopback port the cubby server action listens on.
+    required: false
+    default: '8095'
+outputs:
+  endpoint:
+    description: >-
+      One of cubby-loopback, original-https, other, invalid or missing.
+runs:
+  using: node20
+  main: main.cjs

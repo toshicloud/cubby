@@ -1,0 +1,33 @@
+# Copyright 2026 The cubby contributors
+# SPDX-License-Identifier: Apache-2.0
+name: Cubby cache server
+description: >-
+  Start or stop the cubby cache command for one compatibility experiment on a
+  loopback listener. The binary is built by the workflow before this action;
+  this action does not build, download or register anything.
+inputs:
+  mode:
+    description: start, or cleanup for the server this action started.
+    required: false
+    default: start
+  binary:
+    description: Path to a cubby binary built before this step (start mode).
+    required: false
+  storage_dir:
+    description: Directory for cached entries (start mode).
+    required: false
+  port:
+    description: Loopback port for the listener and for the cleanup metadata.
+    required: false
+    default: '8095'
+  cap_bytes:
+    description: >-
+      Explicit tenant cap in bytes; zero or negative disables cache operations.
+    required: false
+    default: '1073741824'
+outputs:
+  url:
+    description: Loopback base URL of the started server.
+runs:
+  using: node20
+  main: main.cjs
