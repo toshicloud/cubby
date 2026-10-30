@@ -41,8 +41,10 @@ operations. The cap covers stored entries. Open uploads have a separate budget,
 and concurrent transfers or active downloads can temporarily keep disk use above
 the configured cap.
 
-Completed entries have no time-based expiry. Saves trigger LRU eviction within
-the tenant's cap. There is no host-wide byte limit; provision disk for the sum of
+Saves trigger LRU eviction within the tenant's cap. Completed entries have no
+time-based expiry of their own: `Server.EvictUnused(maxAge)` removes, in every
+tenant, the entries no save or restore has used for `maxAge`, and the caller
+chooses when to call it. There is no host-wide byte limit; provision disk for the sum of
 tenant budgets, staged uploads and transfers in flight.
 
 Generate the runner's `NODE_OPTIONS` value with:

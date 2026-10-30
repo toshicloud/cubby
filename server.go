@@ -4,6 +4,7 @@
 package cubby
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -12,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -193,4 +195,54 @@ func (s *Server) handleForwardTwirp(w http.ResponseWriter, r *http.Request) {
 	}
 	s.log.Debug("forward twirp", "method", r.Method, "path", r.URL.Path)
 	s.proxy.ServeHTTP(w, r)
+}
+
+// EvictUnused removes, in every tenant, the entries no save or restore has
+// used for maxAge, and returns the bytes they held. An entry a download is
+// reading stays for a later call. The caller decides how often to call it.
+func (s *Server) EvictUnused(maxAge time.Duration) (int64, error) {
+	s.mu.Lock()
+	tenants := make([]*tenantStore, 0, len(s.tenants))
+	for _, ts := range s.tenants {
+		tenants = append(tenants, ts)
+	}
+	s.mu.Unlock()
+
+	now := s.now()
+	var freed int64
+	var errs []error
+	for _, ts := range tenants {
+		n, err := s.evictUnusedTenant(ts, now.Add(-maxAge))
+		freed += n
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return freed, errors.Join(errs...)
+}
+
+// evictUnusedTenant removes ts's entries last used at or before cutoff.
+func (s *Server) evictUnusedTenant(ts *tenantStore, cutoff time.Time) (int64, error) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	var freed int64
+	tenant, removed := "", false
+	for _, e := range slices.Clone(ts.index.Entries) {
+		if e.LastUsed.After(cutoff) || ts.serving[e.ID] > 0 {
+			continue
+		}
+		s.log.Info("evicted unused cache entry", "tenant_dir", ts.name, "repo", e.Repo, "key", e.Key, "size", e.Size, "last_used", e.LastUsed)
+		_ = os.RemoveAll(ts.entryPath(e.ID))
+		ts.removeEntry(e.ID)
+		freed += e.Size
+		tenant, removed = e.Tenant, true
+	}
+	if !removed {
+		return 0, nil
+	}
+	s.setUsage(tenant, ts.totalEntryBytes())
+	if err := ts.persistIndex(); err != nil {
+		return freed, fmt.Errorf("cubby: evict unused: %w", err)
+	}
+	return freed, nil
 }
